@@ -1,0 +1,54 @@
+name: scan_and_unsubscribe_gmail
+description: Scan Gmail for newsletters and unsubscribe in bulk with user approval
+
+steps:
+  - name: check_dependencies
+    description: Ensure Python dependencies are installed
+    command: |
+      if [ ! -d "venv" ]; then
+        echo "Creating virtual environment..."
+        python3 -m venv venv
+      fi
+      source venv/bin/activate
+      pip install -q -r requirements.txt
+      echo "✓ Dependencies ready"
+
+  - name: check_credentials
+    description: Verify Gmail OAuth credentials exist
+    command: |
+      if [ ! -f "credentials.json" ]; then
+        echo "✗ Missing credentials.json"
+        echo ""
+        echo "Please download OAuth credentials from Google Cloud Console:"
+        echo "1. Go to https://console.cloud.google.com/"
+        echo "2. Enable Gmail API"
+        echo "3. Create OAuth 2.0 credentials (Desktop app)"
+        echo "4. Download and save as credentials.json"
+        exit 1
+      fi
+      echo "✓ Credentials file found"
+
+  - name: run_unsubscriber
+    description: Execute the newsletter unsubscriber
+    command: |
+      source venv/bin/activate
+      python src/main.py
+
+  - name: show_report
+    description: Display the generated summary report
+    command: |
+      if [ -f "output/unsubscribe_summary.md" ]; then
+        echo ""
+        echo "=========================================="
+        echo "SUMMARY REPORT"
+        echo "=========================================="
+        cat output/unsubscribe_summary.md
+      fi
+
+# Workflow configuration
+on:
+  manual: true  # Run manually via Kiro command palette
+
+# Optional: Schedule weekly runs
+# schedule:
+#   cron: "0 9 * * 1"  # Every Monday at 9 AM

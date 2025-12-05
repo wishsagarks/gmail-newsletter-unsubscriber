@@ -1,0 +1,20 @@
+name: auto_newsletter_cleanup
+description: Automatically run newsletter unsubscriber weekly
+
+trigger:
+  type: schedule
+  schedule:
+    cron: "0 9 * * 1"
+    timezone: "America/Los_Angeles"
+
+action:
+  type: workflow
+  workflow: scan_and_unsubscribe_gmail
+
+message: |
+  🧹 Running weekly newsletter cleanup...
+  
+  Scanning your Gmail for newsletters and unsubscribing automatically.
+
+enabled: false
+notify_on_completion: true

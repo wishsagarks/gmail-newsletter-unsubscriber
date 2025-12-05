@@ -1,0 +1,98 @@
+name: auto_cleanup
+description: Automated newsletter cleanup with Streamlit integration
+
+steps:
+  - name: check_environment
+    description: Verify environment is ready
+    command: |
+      echo "🔍 Checking environment..."
+      
+      if [ ! -d "venv" ]; then
+        echo "✗ Virtual environment not found"
+        echo "Run: ./run.sh to set up"
+        exit 1
+      fi
+      
+      if [ ! -f "credentials.json" ]; then
+        echo "✗ Missing credentials.json"
+        echo "Please complete the Setup Wizard first"
+        exit 1
+      fi
+      
+      echo "✓ Environment ready"
+
+  - name: check_automation_state
+    description: Check if cleanup is due
+    command: |
+      source venv/bin/activate
+      python -c "
+      from src.automation_scheduler import AutomationScheduler
+      scheduler = AutomationScheduler()
+      
+      if not scheduler.is_enabled():
+          print('ℹ️ Automation is disabled')
+          print('Enable it in the Streamlit app settings')
+          exit(0)
+      
+      if not scheduler.is_due():
+          next_run = scheduler.format_next_run()
+          print(f'ℹ️ Not due yet. Next run: {next_run}')
+          exit(0)
+      
+      print('✓ Cleanup is due!')
+      "
+
+  - name: run_cleanup
+    description: Execute automated cleanup
+    command: |
+      source venv/bin/activate
+      echo "🚀 Running automated cleanup..."
+      python src/main.py --auto-approve --days 7 --max-messages 500
+
+  - name: update_state
+    description: Update automation state
+    command: |
+      source venv/bin/activate
+      python -c "
+      from src.automation_scheduler import AutomationScheduler
+      import json
+      
+      scheduler = AutomationScheduler()
+      
+      # Try to get count from last run
+      try:
+          with open('output/unsubscribe_summary.md', 'r') as f:
+              content = f.read()
+              # Extract count from summary
+              import re
+              match = re.search(r'Unsubscribed:\s*(\d+)', content)
+              count = int(match.group(1)) if match else 0
+      except:
+          count = 0
+      
+      scheduler.record_run(count)
+      print(f'✓ Recorded run: {count} unsubscribed')
+      "
+
+  - name: show_summary
+    description: Display summary
+    command: |
+      if [ -f "output/unsubscribe_summary.md" ]; then
+        echo ""
+        echo "=========================================="
+        echo "📊 CLEANUP SUMMARY"
+        echo "=========================================="
+        cat output/unsubscribe_summary.md
+        echo ""
+        echo "✅ Automated cleanup complete!"
+      fi
+
+# Workflow configuration
+on:
+  manual: true  # Can be triggered manually
+  schedule: true  # Can be triggered by schedule
+
+# Error handling
+on_error:
+  notify: true
+  message: "❌ Automated cleanup failed. Check logs for details."
